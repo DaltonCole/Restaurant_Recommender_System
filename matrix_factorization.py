@@ -15,6 +15,9 @@ import random
 # Set random seet to 0 to get consitent results across runs
 random.seed(0)
 
+'''
+### This is a collaborative based filtering approach
+'''
 
 ### Rating ###
 print("############################################## Rating ##############################################")
