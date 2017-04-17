@@ -1,3 +1,1 @@
-0.571175950486
-0.586206896552
-0.53492484527
+Prediction Precision: User, reduced variance

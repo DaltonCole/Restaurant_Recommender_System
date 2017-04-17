@@ -6,6 +6,7 @@ from sklearn.tree import DecisionTreeClassifier, export_graphviz
 from sklearn.metrics import f1_score
 from sklearn.feature_selection import VarianceThreshold
 from sklearn import preprocessing
+from sklearn.svm import SVC
 import numpy as np
 import matplotlib.pyplot as plt
 from random import sample # Random integer
@@ -529,11 +530,7 @@ def restaurant_1_to_n_user(user_dict, rest_dict, rest_ratings_dict, classifier):
 				pass
 
 	# Average correct
-	print(np.mean(average_correct_ratings))
-	print(np.mean(average_correct_food_ratings))
-	print(np.mean(average_correct_service_ratings))
-
-	return
+	return [np.mean(average_correct_ratings), np.mean(average_correct_food_ratings), np.mean(average_correct_service_ratings), len(average_correct_ratings)]
 
 def user_1_to_n_restaurant(user_dict, rest_dict, user_ratings_dict, classifier):
 	# Dictionary of user features {userID: features}
@@ -606,11 +603,178 @@ def user_1_to_n_restaurant(user_dict, rest_dict, user_ratings_dict, classifier):
 				pass
 
 	# Average correct
-	print(np.mean(average_correct_ratings))
-	print(np.mean(average_correct_food_ratings))
-	print(np.mean(average_correct_service_ratings))
+	return [np.mean(average_correct_ratings), np.mean(average_correct_food_ratings), np.mean(average_correct_service_ratings), len(average_correct_ratings)]
 
-	return
+def restaurant_1_to_n_user_reduced(user_dict, rest_dict, rest_ratings_dict, classifier):
+	# Dictionary of user features {userID: features}
+	user_feaure_dict = user_dect_to_user_list(user_dict)
+
+	# Average of how often the classifier was right
+	average_correct_ratings = []
+	average_correct_food_ratings = []
+	average_correct_service_ratings = []
+
+	# For each restaurant, seperate restID and user features
+	for restaurant, rating in rest_ratings_dict.items():
+		# Matrix of features
+		rest_matrix = []
+		# List of ratings
+		ratings_list = []
+		food_ratings_list = []
+		service_ratings_list = []
+
+		# For each user. User is in tuple format (userID, rating, food_rating, service_rating)
+		for user in rating:
+			rest_matrix.append(user_feaure_dict[user[0]])
+			ratings_list.append(user[1])
+			food_ratings_list.append(user[2])
+			service_ratings_list.append(user[3])
+
+		sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
+		rest_matrix = sel.fit_transform(rest_matrix)
+
+		# Rows in matrix
+		m_length = len(rest_matrix)
+
+		# Perform decision tree classiciation for ratings
+		for i in range(m_length):
+			try:
+				clf = classifier.fit((rest_matrix[0:i] + rest_matrix[i+1:m_length]), ((ratings_list[0:i] + ratings_list[i+1:m_length])))
+
+				ratings_prediction = clf.predict([rest_matrix[i]])
+
+				if ratings_prediction == ratings_list[i]:
+					average_correct_ratings.append(1)
+				else:
+					average_correct_ratings.append(0)
+			except:
+				pass
+
+		# Perform decision tree classiciation for food ratings
+		for i in range(m_length):
+			try:
+				clf = classifier.fit((rest_matrix[0:i] + rest_matrix[i+1:m_length]), ((food_ratings_list[0:i] + food_ratings_list[i+1:m_length])))
+
+				ratings_prediction = clf.predict([rest_matrix[i]])
+
+				if ratings_prediction == food_ratings_list[i]:
+					average_correct_food_ratings.append(1)
+				else:
+					average_correct_food_ratings.append(0)
+			except:
+				pass
+
+		# Perform decision tree classiciation for service ratings
+		for i in range(m_length):
+			try:
+				clf = classifier.fit((rest_matrix[0:i] + rest_matrix[i+1:m_length]), ((service_ratings_list[0:i] + service_ratings_list[i+1:m_length])))
+
+				ratings_prediction = clf.predict([rest_matrix[i]])
+
+				if ratings_prediction == service_ratings_list[i]:
+					average_correct_service_ratings.append(1)
+				else:
+					average_correct_service_ratings.append(0)
+			except:
+				pass
+
+	# Average correct
+	a = sum(average_correct_ratings)
+	if(a != 0):
+		a /= len(average_correct_ratings)
+	b = sum(average_correct_ratings)
+	if(b != 0):
+		b /= len(average_correct_food_ratings)
+	c = sum(average_correct_ratings)
+	if(c != 0):
+		c /= len(average_correct_service_ratings)
+	return [a,b,c, len(average_correct_ratings)]
+
+def user_1_to_n_restaurant_reduced(user_dict, rest_dict, user_ratings_dict, classifier):
+	# Dictionary of user features {userID: features}
+	item_feaure_dict = item_dect_to_item_list(rest_dict)
+
+	# Average of how often the classifier was right
+	average_correct_ratings = []
+	average_correct_food_ratings = []
+	average_correct_service_ratings = []
+
+	# For each user, seperate restID and restaurant features
+	for user, rating in user_ratings_dict.items():
+		# Matrix of features
+		user_matrix = []
+		# List of ratings
+		ratings_list = []
+		food_ratings_list = []
+		service_ratings_list = []
+
+		# For each restaurant. Rest is in tuple format (placeID, rating, food_rating, service_rating)
+		for rest in rating:
+			user_matrix.append(item_feaure_dict[rest[0]])
+			ratings_list.append(rest[1])
+			food_ratings_list.append(rest[2])
+			service_ratings_list.append(rest[3])
+
+		sel = VarianceThreshold(threshold=(.2 * (1 - .2)))
+		user_matrix = sel.fit_transform(user_matrix, ratings_list)
+		print(len(user_matrix))
+
+		# Rows in matrix
+		m_length = len(user_matrix)
+
+		# Perform decision tree classiciation for ratings
+		for i in range(m_length):
+			try:
+				clf = classifier.fit((user_matrix[0:i] + user_matrix[i+1:m_length]), ((ratings_list[0:i] + ratings_list[i+1:m_length])))
+
+				ratings_prediction = clf.predict([user_matrix[i]])
+
+				if ratings_prediction == ratings_list[i]:
+					average_correct_ratings.append(1)
+				else:
+					average_correct_ratings.append(0)
+			except Exception as e: print(e)
+
+		# Perform decision tree classiciation for food ratings
+		for i in range(m_length):
+			try:
+				clf = classifier.fit((user_matrix[0:i] + user_matrix[i+1:m_length]), ((food_ratings_list[0:i] + food_ratings_list[i+1:m_length])))
+
+				ratings_prediction = clf.predict([user_matrix[i]])
+
+				if ratings_prediction == food_ratings_list[i]:
+					average_correct_food_ratings.append(1)
+				else:
+					average_correct_food_ratings.append(0)
+			except:
+				pass
+
+		# Perform decision tree classiciation for service ratings
+		for i in range(m_length):
+			try:
+				clf = classifier.fit((user_matrix[0:i] + user_matrix[i+1:m_length]), ((service_ratings_list[0:i] + service_ratings_list[i+1:m_length])))
+
+				ratings_prediction = clf.predict([user_matrix[i]])
+
+				if ratings_prediction == service_ratings_list[i]:
+					average_correct_service_ratings.append(1)
+				else:
+					average_correct_service_ratings.append(0)
+			except:
+				pass
+
+	# Average correct
+	a = sum(average_correct_ratings)
+	if(a != 0):
+		a /= len(average_correct_ratings)
+	b = sum(average_correct_ratings)
+	if(b != 0):
+		b /= len(average_correct_food_ratings)
+	c = sum(average_correct_ratings)
+	if(c != 0):
+		c /= len(average_correct_service_ratings)
+	return [a,b,c, len(average_correct_ratings)]
+
 
 #print(item())
 #item()
@@ -630,9 +794,102 @@ a = user()
 b = item()
 c, d = rating_dict();
 #pp.pprint(d)
-e = user_1_to_n_restaurant(a,b,c, KNeighborsClassifier(n_neighbors=3))
-#pp.pprint(e)
+# DecisionTreeClassifier()
+# KNeighborsClassifier(n_neighbors=1)
+# SVC()
 
+from sklearn.linear_model import SGDClassifier
+# SGDClassifier(loss="hinge", penalty="l2")
+# from sklearn.gaussian_process import GaussianProcess
+# GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1) NO
+from sklearn.ensemble import RandomForestClassifier
+# RandomForestClassifier(n_estimators=1)
+# from sklearn.neural_network import MLPClassifier
+# MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1) NO
+from texttable import Texttable
+
+t1 = Texttable()
+
+print('Prediction Precision: User')
+header = ['Classifier', 'Rating', 'Food Rating', 'Service Rating', 'Samples']
+
+u_decision_tree = ['Decision Tree'] + user_1_to_n_restaurant(a,b,c, DecisionTreeClassifier())
+u_knn = ['kNN, k=1'] + user_1_to_n_restaurant(a,b,c, KNeighborsClassifier(n_neighbors=1))
+u_knn2 = ['kNN, k=2'] + user_1_to_n_restaurant(a,b,c, KNeighborsClassifier(n_neighbors=2))
+u_knn3 = ['kNN, k=3'] + user_1_to_n_restaurant(a,b,c, KNeighborsClassifier(n_neighbors=3))
+u_knn4 = ['kNN, k=4'] + user_1_to_n_restaurant(a,b,c, KNeighborsClassifier(n_neighbors=4))
+u_knn5 = ['kNN, k=5'] + user_1_to_n_restaurant(a,b,c, KNeighborsClassifier(n_neighbors=5))
+u_knn6 = ['kNN, k=6'] + user_1_to_n_restaurant(a,b,c, KNeighborsClassifier(n_neighbors=6))
+u_svc = ['SVC'] + user_1_to_n_restaurant(a,b,c, SVC())
+
+t1.add_rows([header, u_decision_tree, u_svc, u_knn, u_knn2, u_knn3, u_knn4, u_knn5, u_knn6])
+
+print(t1.draw())
+print()
+
+t2 = Texttable()
+
+print('Prediction Precision: Restaurant')
+header = ['Classifier', 'Rating', 'Food Rating', 'Service Rating', 'Samples']
+
+i_decision_tree = ['Decision Tree'] + restaurant_1_to_n_user(a,b,d, DecisionTreeClassifier())
+i_knn = ['kNN, k=1'] + restaurant_1_to_n_user(a,b,d, KNeighborsClassifier(n_neighbors=1))
+i_knn2 = ['kNN, k=2'] + restaurant_1_to_n_user(a,b,d, KNeighborsClassifier(n_neighbors=2))
+i_knn3 = ['kNN, k=3'] + restaurant_1_to_n_user(a,b,d, KNeighborsClassifier(n_neighbors=3))
+i_knn4 = ['kNN, k=4'] + restaurant_1_to_n_user(a,b,d, KNeighborsClassifier(n_neighbors=4))
+i_knn5 = ['kNN, k=5'] + restaurant_1_to_n_user(a,b,d, KNeighborsClassifier(n_neighbors=5))
+i_knn6 = ['kNN, k=6'] + restaurant_1_to_n_user(a,b,d, KNeighborsClassifier(n_neighbors=6))
+i_svc = ['SVC'] + restaurant_1_to_n_user(a,b,d, SVC())
+
+t2.add_rows([header, i_decision_tree, i_svc, i_knn, i_knn2, i_knn3, i_knn4, i_knn5, i_knn6])
+
+print(t2.draw())
+print()
+'''
+
+##########
+
+t1 = Texttable()
+
+print('Prediction Precision: User, reduced variance')
+header = ['Classifier', 'Rating', 'Food Rating', 'Service Rating', 'Samples']
+
+u_decision_tree = ['Decision Tree'] + user_1_to_n_restaurant_reduced(a,b,c, DecisionTreeClassifier())
+u_knn = ['kNN, k=1'] + user_1_to_n_restaurant_reduced(a,b,c, KNeighborsClassifier(n_neighbors=1))
+u_knn2 = ['kNN, k=2'] + user_1_to_n_restaurant_reduced(a,b,c, KNeighborsClassifier(n_neighbors=2))
+u_knn3 = ['kNN, k=3'] + user_1_to_n_restaurant_reduced(a,b,c, KNeighborsClassifier(n_neighbors=3))
+u_knn4 = ['kNN, k=4'] + user_1_to_n_restaurant_reduced(a,b,c, KNeighborsClassifier(n_neighbors=4))
+u_knn5 = ['kNN, k=5'] + user_1_to_n_restaurant_reduced(a,b,c, KNeighborsClassifier(n_neighbors=5))
+u_knn6 = ['kNN, k=6'] + user_1_to_n_restaurant_reduced(a,b,c, KNeighborsClassifier(n_neighbors=6))
+u_svc = ['SVC'] + user_1_to_n_restaurant_reduced(a,b,c, SVC())
+
+t1.add_rows([header, u_decision_tree, u_svc, u_knn, u_knn2, u_knn3, u_knn4, u_knn5, u_knn6])
+
+print(t1.draw())
+print()
+
+t2 = Texttable()
+
+print('Prediction Precision: Restaurant, reduced variance')
+header = ['Classifier', 'Rating', 'Food Rating', 'Service Rating', 'Samples']
+
+i_decision_tree = ['Decision Tree'] + restaurant_1_to_n_user_reduced(a,b,d, DecisionTreeClassifier())
+i_knn = ['kNN, k=1'] + restaurant_1_to_n_user_reduced(a,b,d, KNeighborsClassifier(n_neighbors=1))
+i_knn2 = ['kNN, k=2'] + restaurant_1_to_n_user_reduced(a,b,d, KNeighborsClassifier(n_neighbors=2))
+i_knn3 = ['kNN, k=3'] + restaurant_1_to_n_user_reduced(a,b,d, KNeighborsClassifier(n_neighbors=3))
+i_knn4 = ['kNN, k=4'] + restaurant_1_to_n_user_reduced(a,b,d, KNeighborsClassifier(n_neighbors=4))
+i_knn5 = ['kNN, k=5'] + restaurant_1_to_n_user_reduced(a,b,d, KNeighborsClassifier(n_neighbors=5))
+i_knn6 = ['kNN, k=6'] + restaurant_1_to_n_user_reduced(a,b,d, KNeighborsClassifier(n_neighbors=6))
+i_svc = ['SVC'] + restaurant_1_to_n_user_reduced(a,b,d, SVC())
+
+t2.add_rows([header, i_decision_tree, i_svc, i_knn, i_knn2, i_knn3, i_knn4, i_knn5, i_knn6])
+
+print(t2.draw())
+print()
+
+#e = user_1_to_n_restaurant(a,b,c, DecisionTreeClassifier())
+#pp.pprint(e)
+'''
 
 
 
